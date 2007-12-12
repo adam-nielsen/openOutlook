@@ -12,6 +12,7 @@
 //     <to>Adam Nielsen</to>
 //     <to>John Smith</to>
 //     <cc>Someone else</cc>
+//     <bcc>Bob Jones</bcc>
 //     <subject>Test message</subject>
 //     <body href="msg.html"/>
 //   </mail>
@@ -108,6 +109,9 @@ if (nodeTo) msg.To = joinNodes(nodeTo, "; "); // Semicolon-delimited list of rec
 
 var nodeCC = doc.selectNodes("//mail/cc");
 if (nodeCC) msg.CC = joinNodes(nodeCC, "; ");
+
+var nodeBCC = doc.selectNodes("//mail/bcc");
+if (nodeBCC) msg.BCC = joinNodes(nodeBCC, "; ");
 
 var nodeSubject = doc.selectSingleNode("//mail/subject");
 if (nodeSubject) msg.Subject = nodeSubject.text;
