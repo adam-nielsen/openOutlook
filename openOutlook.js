@@ -48,6 +48,10 @@ if (WScript.Arguments.Count() != 1) { // no parameter
 // Globals
 var olMailItem = 0; // TODO: check this
 var olFormatHTML = 2;
+var olByValue = 1;
+var olSave = 0;
+//var olEmbeddedItem = 5;
+var CdoPR_ATTACH_MIME_TAG = 0x370E001E;
 
 // --- BEGIN MESSAGEBOX DEFINITION ---
 var MB_OK = 0;
@@ -116,6 +120,57 @@ if (nodeBCC) msg.BCC = joinNodes(nodeBCC, "; ");
 var nodeSubject = doc.selectSingleNode("//mail/subject");
 if (nodeSubject) msg.Subject = nodeSubject.text;
 
+var nodeAttachments = doc.selectNodes("//mail/attachment");
+if (nodeAttachments.length > 0) {
+	//var str = nodeAttachments[0].text;
+	var strCIDs = new Array();
+	for (var i = 0; i < nodeAttachments.length; i++) {
+		var att = msg.Attachments.Add(nodeAttachments[i].text, olByValue, 1, "Image description");
+		att = null;
+		strCIDs[i] = nodeAttachments[i].getAttribute("cid");
+		//att.Position = -1;
+		//alert(att.position);
+		//att.Fields.add(0x7FFF000B, "true");
+		//att.Fields.add(0x370B0003, -1);
+	}
+	// We have to release the attachment objects fully, otherwise the changes won't be saved
+	CollectGarbage(); // release all the objects we've assigned null to
+
+	//msg.Save();
+	//var strMsgID = msg.EntryID;
+	//alert(strMsgID);
+	msg.Close(olSave);
+	var strMsgID = msg.EntryID;
+
+	// We have to release the objects fully, otherwise the changes won't be saved
+	msg = null;
+	ol = null;
+	CollectGarbage(); // release all the objects we've assigned null to
+
+	// Find the message in "MAPI Session" mode
+	var oSession = WScript.CreateObject("MAPI.Session");
+	oSession.Logon("", "", false, false);
+	var oMsg = oSession.GetMessage(strMsgID);
+
+	// Set the attachment CIDs
+	for (var i = 0; i < nodeAttachments.length; i++) {
+		var oAttachFields = oMsg.Attachments.Item(i+1).Fields;
+		//oAttachFields.Add(CdoPR_ATTACH_MIME_TAG, "image/jpeg");
+		oAttachFields.Add(0x3712001E, strCIDs[i]);
+	}
+
+	// Hide the attachments (necessary?  Might be automatic for embedded images.)
+	//oMsg.Fields.Add("{0820060000000000C000000000000046}0x8514", 11, true)
+
+	// Save changes
+	oMsg.Update();
+
+	// Reopen the message in MAPI mode
+	ol = WScript.CreateObject("Outlook.Application");
+	// Get the Outlook MailItem again
+	msg = ol.GetNamespace("MAPI").GetItemFromID(strMsgID);
+}
+
 var nodeBody = doc.selectSingleNode("//mail/body");
 if (nodeBody) {
 	if (nodeBody.text != "") msg.Body = nodeBody.text;
@@ -136,5 +191,7 @@ if (nodeBody) {
 		}
 	}
 }
+
+msg.Close(olSave);
 
 msg.Display();
