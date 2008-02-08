@@ -34,17 +34,6 @@
 
 var strFilename = "$DATAFILE;";
 
-// Script parameters
-if (WScript.Arguments.Count() != 1) { // no parameter
-	if (strFilename[0] == '$') { // no inline replacement
-		// No data file supplied
-		MessageBox("Usage: openOutlook data.xml", "Missing Parameter", MB_OK | MB_ICONEXCLAMATION);
-		WScript.Quit();
-	} // else continue on with inline replacement
-} else {
-	var strFilename = WScript.Arguments.Item(0);
-}
-
 // Globals
 var olMailItem = 0; // TODO: check this
 var olFormatHTML = 2;
@@ -80,6 +69,18 @@ function MessageBox(strMessage, strTitle, iButtons)
 	sh.Popup(strMessage, 0, strTitle, iButtons);
 }
 // --- END MESSAGEBOX DEFINITION ---
+
+
+// Script parameters
+if (WScript.Arguments.Count() != 1) { // no parameter
+	if (strFilename[0] == '$') { // no inline replacement
+		// No data file supplied
+		MessageBox("Usage: openOutlook data.xml", "Missing Parameter", MB_OK | MB_ICONEXCLAMATION);
+		WScript.Quit();
+	} // else continue on with inline replacement
+} else {
+	var strFilename = WScript.Arguments.Item(0);
+}
 
 //var ol = Script.CreateObject("Outlook.Application");
 
@@ -125,7 +126,13 @@ if (nodeAttachments.length > 0) {
 	//var str = nodeAttachments[0].text;
 	var strCIDs = new Array();
 	for (var i = 0; i < nodeAttachments.length; i++) {
-		var att = msg.Attachments.Add(nodeAttachments[i].text, olByValue, 1, "Image description");
+		var strDesc = nodeAttachments[i].getAttribute("description");
+		if (strDesc == null) {
+			MessageBox("<attachment/> tag has no description attribute!", "XML Error", MB_OK | MB_ICONERROR);
+			WScript.Quit();
+		}
+
+		var att = msg.Attachments.Add(nodeAttachments[i].text, olByValue, 1, strDesc);
 		att = null;
 		strCIDs[i] = nodeAttachments[i].getAttribute("cid");
 		//att.Position = -1;
@@ -149,7 +156,17 @@ if (nodeAttachments.length > 0) {
 
 	// Find the message in "MAPI Session" mode
 	var oSession = WScript.CreateObject("MAPI.Session");
-	oSession.Logon("", "", false, false);
+	try {
+		oSession.Logon("", "", false, false);
+	} catch (e) {
+		if (e.number == -2147221231) {
+			MessageBox("Unable to generate e-mail message.  Are you sure you have Outlook open?", "Outlook error", MB_OK | MB_ICONERROR);
+		} else {
+			throw e;
+		}
+		WScript.Quit();
+	}
+
 	var oMsg = oSession.GetMessage(strMsgID);
 
 	// Set the attachment CIDs
