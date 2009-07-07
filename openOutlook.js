@@ -1,8 +1,17 @@
 //
-// openOutlook.js - revision 1 (2007-09-11 / adam.nielsen@uq.edu.au)
+// openOutlook.js - revision 2 (2009-07-07 / adam.nielsen@uq.edu.au)
 //
 // Read in the XML file given on the command line and use it to open a new
-// preformatted e-mail in Outlook, ready to be sent.  Usage:
+// preformatted e-mail in Outlook, ready to be sent.  Supports full HTML
+// content in the message body, with embedded images and other attachments.
+//
+// This file is placed in the public domain.  Feel free to use it for anything
+// you like.  There is no warranty - if it breaks you get to keep both pieces.
+//
+// 2007-09-11 / adam.nielsen@uq.edu.au: Initial version
+// 2009-07-07 / adam.nielsen@uq.edu.au: Set message body to UTF-8
+//
+// Usage:
 //
 //   openOutlook.js data.xml
 //
@@ -15,7 +24,11 @@
 //     <bcc>Bob Jones</bcc>
 //     <subject>Test message</subject>
 //     <body href="msg.html"/>
+//     <attachment cid="cid:1" href="example.jpg">Embedded image</attachment>
 //   </mail>
+//
+// All fields are optional.  The "cid" can be used with attachments to link to
+// embedded images from within the message body, like <img src="cid:1" />
 //
 // The message body can also be specified inline:
 //
@@ -29,13 +42,18 @@
 // This script is a text file, so make sure it uses DOS (CRLF) line endings or
 // it will not run.
 //
-// This has been tested with Outlook 2003.
+// This has been tested with Outlook 2003 and Outlook 2007.
 //
 
+// If you don't want to specify the XML filename on the command line, you can
+// hard code it here.  The reason for it saying "datafile" at the moment is
+// because in our environment JavaScript code running through XULRunner
+// overwrites this placeholder with the path to the XML file before launching
+// the script.
 var strFilename = "$DATAFILE;";
 
 // Globals
-var olMailItem = 0; // TODO: check this
+var olMailItem = 0;
 var olFormatHTML = 2;
 var olByValue = 1;
 var olSave = 0;
@@ -108,6 +126,7 @@ function joinNodes(nodeList, delim)
 
 var ol = WScript.CreateObject("Outlook.Application");
 var msg = ol.CreateItem(olMailItem);
+msg.InternetCodePage = 65001; // UTF-8
 
 var nodeTo = doc.selectNodes("//mail/to");
 if (nodeTo) msg.To = joinNodes(nodeTo, "; "); // Semicolon-delimited list of recipients
@@ -123,29 +142,21 @@ if (nodeSubject) msg.Subject = nodeSubject.text;
 
 var nodeAttachments = doc.selectNodes("//mail/attachment");
 if (nodeAttachments.length > 0) {
-	//var str = nodeAttachments[0].text;
 	var strCIDs = new Array();
 	for (var i = 0; i < nodeAttachments.length; i++) {
-		var strDesc = nodeAttachments[i].getAttribute("description");
-		if (strDesc == null) {
-			MessageBox("<attachment/> tag has no description attribute!", "XML Error", MB_OK | MB_ICONERROR);
+		var strHRef = nodeAttachments[i].getAttribute("href");
+		if (strHRef == null) {
+			MessageBox("<attachment/> tag has no href attribute!", "XML Error", MB_OK | MB_ICONERROR);
 			WScript.Quit();
 		}
 
-		var att = msg.Attachments.Add(nodeAttachments[i].text, olByValue, 1, strDesc);
-		att = null;
+		var att = msg.Attachments.Add(strHRef, olByValue, 1, nodeAttachments[i].text);
+		att = null; // necessary! (for garbage collection)
 		strCIDs[i] = nodeAttachments[i].getAttribute("cid");
-		//att.Position = -1;
-		//alert(att.position);
-		//att.Fields.add(0x7FFF000B, "true");
-		//att.Fields.add(0x370B0003, -1);
 	}
 	// We have to release the attachment objects fully, otherwise the changes won't be saved
 	CollectGarbage(); // release all the objects we've assigned null to
 
-	//msg.Save();
-	//var strMsgID = msg.EntryID;
-	//alert(strMsgID);
 	msg.Close(olSave);
 	var strMsgID = msg.EntryID;
 
@@ -199,12 +210,14 @@ if (nodeBody) {
 			var fso = new ActiveXObject("Scripting.FileSystemObject");
 			var FOR_READING = 1, FOR_WRITING = 2, FOR_APPENDING = 8;
 
-			var f = fso.OpenTextFile(strBodyRef, FOR_READING);
+			var f = fso.OpenTextFile(strBodyRef, FOR_READING); // US-ASCII
+			//var f = fso.OpenTextFile(strBodyRef, FOR_READING, false, -1); // UTF-16
 			var strHTML = f.ReadAll();
 			f.close();
 
 			msg.BodyFormat = olFormatHTML;
-			msg.HTMLBody = strHTML;//"<code>" + strBodyRef + "</code>";
+			//msg.InternetCodePage = 65001; // UTF-8
+			msg.HTMLBody = strHTML; // "<code>" + strBodyRef + "</code>";
 		}
 	}
 }
