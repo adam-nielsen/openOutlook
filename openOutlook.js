@@ -88,19 +88,16 @@ function MessageBox(strMessage, strTitle, iButtons)
 }
 // --- END MESSAGEBOX DEFINITION ---
 
-
 // Script parameters
 if (WScript.Arguments.Count() != 1) { // no parameter
-	if (strFilename[0] == '$') { // no inline replacement
+	if (strFilename.substr(0, 1) == '$') { // no inline replacement
 		// No data file supplied
 		MessageBox("Usage: openOutlook data.xml", "Missing Parameter", MB_OK | MB_ICONEXCLAMATION);
 		WScript.Quit();
 	} // else continue on with inline replacement
 } else {
-	var strFilename = WScript.Arguments.Item(0);
+	strFilename = WScript.Arguments.Item(0);
 }
-
-//var ol = Script.CreateObject("Outlook.Application");
 
 var doc = new ActiveXObject("msxml2.DOMDocument.3.0");
 
