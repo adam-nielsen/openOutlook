@@ -1,5 +1,6 @@
 ## openOutlook.js ##
-Written by Adam Nielsen <adam.nielsen@uq.edu.au>
+Written by Adam Nielsen <<adam.nielsen@uq.edu.au>>
+https://github.com/adam-nielsen/openOutlook
 
 This JScript code reads in the XML file given on the command line and uses it to open a new preformatted e-mail in Outlook, ready to be sent.  It supports full HTML content in the message body, with embedded images and other attachments.
 
