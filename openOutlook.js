@@ -1,5 +1,5 @@
 //
-// openOutlook.js - revision 2 (2009-07-07 / adam.nielsen@uq.edu.au)
+// openOutlook.js - revision 3 (2011-04-04 / adam.nielsen@uq.edu.au)
 //
 // Read in the XML file given on the command line and use it to open a new
 // preformatted e-mail in Outlook, ready to be sent.  Supports full HTML
@@ -10,6 +10,8 @@
 //
 // 2007-09-11 / adam.nielsen@uq.edu.au: Initial version
 // 2009-07-07 / adam.nielsen@uq.edu.au: Set message body to UTF-8
+// 2011-04-04 / adam.nielsen@uq.edu.au: Remove CDO code to hide image
+//   attachments, seems no longer req'd and now works with Outlook 2010
 //
 // Usage:
 //
@@ -42,7 +44,7 @@
 // This script is a text file, so make sure it uses DOS (CRLF) line endings or
 // it will not run.
 //
-// This has been tested with Outlook 2003 and Outlook 2007.
+// This has been tested with Outlook 2007 and Outlook 2010.
 //
 
 // If you don't want to specify the XML filename on the command line, you can
@@ -57,8 +59,6 @@ var olMailItem = 0;
 var olFormatHTML = 2;
 var olByValue = 1;
 var olSave = 0;
-//var olEmbeddedItem = 5;
-var CdoPR_ATTACH_MIME_TAG = 0x370E001E;
 
 // --- BEGIN MESSAGEBOX DEFINITION ---
 var MB_OK = 0;
@@ -156,47 +156,6 @@ if (nodeAttachments.length > 0) {
 	}
 	// We have to release the attachment objects fully, otherwise the changes won't be saved
 	CollectGarbage(); // release all the objects we've assigned null to
-
-	msg.Close(olSave);
-	var strMsgID = msg.EntryID;
-
-	// We have to release the objects fully, otherwise the changes won't be saved
-	msg = null;
-	ol = null;
-	CollectGarbage(); // release all the objects we've assigned null to
-
-	// Find the message in "MAPI Session" mode
-	var oSession = WScript.CreateObject("MAPI.Session");
-	try {
-		oSession.Logon("", "", false, false);
-	} catch (e) {
-		if (e.number == -2147221231) {
-			MessageBox("Unable to generate e-mail message.  Are you sure you have Outlook open?", "Outlook error", MB_OK | MB_ICONERROR);
-		} else {
-			throw e;
-		}
-		WScript.Quit();
-	}
-
-	var oMsg = oSession.GetMessage(strMsgID);
-
-	// Set the attachment CIDs
-	for (var i = 0; i < nodeAttachments.length; i++) {
-		var oAttachFields = oMsg.Attachments.Item(i+1).Fields;
-		//oAttachFields.Add(CdoPR_ATTACH_MIME_TAG, "image/jpeg");
-		oAttachFields.Add(0x3712001E, strCIDs[i]);
-	}
-
-	// Hide the attachments (necessary?  Might be automatic for embedded images.)
-	//oMsg.Fields.Add("{0820060000000000C000000000000046}0x8514", 11, true)
-
-	// Save changes
-	oMsg.Update();
-
-	// Reopen the message in MAPI mode
-	ol = WScript.CreateObject("Outlook.Application");
-	// Get the Outlook MailItem again
-	msg = ol.GetNamespace("MAPI").GetItemFromID(strMsgID);
 }
 
 var nodeBody = doc.selectSingleNode("//mail/body");
@@ -211,12 +170,10 @@ if (nodeBody) {
 			var FOR_READING = 1, FOR_WRITING = 2, FOR_APPENDING = 8;
 
 			var f = fso.OpenTextFile(strBodyRef, FOR_READING); // US-ASCII
-			//var f = fso.OpenTextFile(strBodyRef, FOR_READING, false, -1); // UTF-16
 			var strHTML = f.ReadAll();
 			f.close();
 
 			msg.BodyFormat = olFormatHTML;
-			//msg.InternetCodePage = 65001; // UTF-8
 			msg.HTMLBody = strHTML; // "<code>" + strBodyRef + "</code>";
 		}
 	}
